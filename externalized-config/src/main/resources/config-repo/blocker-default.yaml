@@ -1,0 +1,21 @@
+server:
+  port: ${services.blocker.port}
+
+spring:
+  main:
+    allow-bean-definition-overriding: true
+
+  # Cloud
+  cloud:
+    # Zookeeper
+    zookeeper:
+      discovery:
+        enabled: true
+      connect-string: zookeeper:2181
+
+  # Security
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: http://keycloak:8080/realms/bankapp/protocol/openid-connect/certs

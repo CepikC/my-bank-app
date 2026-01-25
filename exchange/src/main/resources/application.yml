@@ -1,0 +1,10 @@
+spring:
+
+  application:
+    name: exchange
+
+  main:
+    web-application-type: reactive
+
+  config:
+    import: optional:configserver:http://externalized-config-app:8888

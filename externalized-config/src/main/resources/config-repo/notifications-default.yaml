@@ -1,0 +1,34 @@
+server:
+  port: ${services.notifications.port}
+
+spring:
+  main:
+    allow-bean-definition-overriding: true # убрать после dev
+
+  # Cloud
+  cloud:
+    # Zookeeper
+    zookeeper:
+      discovery:
+        enabled: true
+      connect-string: zookeeper:2181
+
+  # Security
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: http://keycloak:8080/realms/bankapp/protocol/openid-connect/certs
+
+  # Liquibase
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.xml
+    enabled: true
+    drop-first: true
+
+  # Datasource (reactive)
+  r2dbc:
+    url: r2dbc:postgresql://notifications-postgres:5432/notifications-db
+#    url: r2dbc:postgresql://localhost:5434/notifications-db
+    username: postgres
+    password: postgres
