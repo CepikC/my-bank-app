@@ -1,3 +1,6 @@
+server:
+  port: 8085
+
 spring:
 
   application:
@@ -6,5 +9,49 @@ spring:
   main:
     web-application-type: reactive
 
-  config:
-    import: optional:configserver:http://externalized-config-app:8888
+  cloud:
+    # Zookeeper
+    zookeeper:
+      discovery:
+        enabled: true
+      connect-string: localhost:2181
+
+  # Security
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: http://localhost:8180/realms/bankapp/protocol/openid-connect/certs
+
+  # Liquibase
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.xml
+    enabled: true
+    drop-first: true
+
+  # Datasource (reactive)
+  r2dbc:
+    url: r2dbc:postgresql://localhost:5433/exchange-db
+    username: postgres
+    password: postgres
+
+headers:
+  user-header: X-User-Login
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: '*'
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    web: info
+    org.springframework.security: info
+
+services:
+  service-gateway:
+    name: "localhost:8080"

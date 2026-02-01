@@ -1,25 +1,6 @@
 version: '3'
 services:
 
-  # -------- Infrastructure -------- #
-  externalized-config-app:
-    image: externalized-config-app:latest
-    build:
-      context: .
-      dockerfile: externalized-config/Dockerfile
-    environment:
-      SPRING_CLOUD_ZOOKEEPER_CONNECT_STRING: zookeeper:2181
-    ports:
-      - "8888:8888"
-    depends_on:
-      - zookeeper
-    networks:
-      - app_network
-    healthcheck:
-      test: [ "CMD", "wget", "--spider", "-q", "http://localhost:8888/actuator/health" ]
-      interval: 10s
-      timeout: 5s
-      retries: 10
 
   zookeeper:
     image: confluentinc/cp-zookeeper:latest
@@ -102,9 +83,6 @@ services:
     restart: on-failure
     networks:
       - app_network
-    depends_on:
-      externalized-config-app:
-        condition: service_healthy
 
   convert:
     image: convert:latest
@@ -124,9 +102,6 @@ services:
     ports:
       - "8081:8081"
     restart: on-failure
-    depends_on:
-      externalized-config-app:
-        condition: service_healthy
     networks:
       - app_network
 
@@ -150,9 +125,6 @@ services:
     restart: on-failure
     networks:
       - app_network
-    depends_on:
-      externalized-config-app:
-        condition: service_healthy
 
   blocker:
     image: blocker:latest
@@ -166,9 +138,6 @@ services:
     ports:
       - "8083:8083"
     restart: on-failure
-    depends_on:
-      externalized-config-app:
-        condition: service_healthy
     networks:
       - app_network
 
@@ -195,9 +164,6 @@ services:
     restart: on-failure
     networks:
       - app_network
-    depends_on:
-      externalized-config-app:
-        condition: service_healthy
 
   exchange:
     image: exchange:latest
@@ -214,9 +180,6 @@ services:
     ports:
       - "8085:8085"
     restart: on-failure
-    depends_on:
-      externalized-config-app:
-        condition: service_healthy
     networks:
       - app_network
 
@@ -240,9 +203,6 @@ services:
     restart: on-failure
     networks:
       - app_network
-    depends_on:
-      externalized-config-app:
-        condition: service_healthy
 
 
   notifications:
@@ -262,9 +222,6 @@ services:
     restart: on-failure
     networks:
       - app_network
-    depends_on:
-      externalized-config-app:
-        condition: service_healthy
 
   gateway-api:
     image: gateway-api:latest
@@ -286,9 +243,6 @@ services:
     restart: on-failure
     networks:
       - app_network
-    depends_on:
-      externalized-config-app:
-        condition: service_healthy
 
 networks:
   app_network:
