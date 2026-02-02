@@ -9,11 +9,6 @@ spring:
     web-application-type: reactive
 
   cloud:
-    # Zookeeper
-    zookeeper:
-      discovery:
-        enabled: true
-      connect-string: localhost:2181
 
     # Gateway (service-locator)
     gateway:
@@ -21,7 +16,7 @@ spring:
         webflux:
           routes:
             - id: service-front-route
-              uri: lb://gateway-api
+              uri: http://my-bank-app-gateway-api
               predicates:
                 - Path=/
               filters:
@@ -75,4 +70,4 @@ logging:
 
 services:
   service-gateway:
-    name: "localhost:8080"
+    name: "my-bank-app-gateway-api:8080"

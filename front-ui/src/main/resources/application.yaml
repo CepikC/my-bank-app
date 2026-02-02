@@ -9,11 +9,6 @@ spring:
     web-application-type: reactive
 
   cloud:
-    # Zookeeper
-    zookeeper:
-      discovery:
-        enabled: true
-      connect-string: localhost:2181
 
   # Security
   security:
@@ -69,4 +64,4 @@ logging:
 
 services:
   service-gateway:
-    name: "localhost:8080"
+    name: "my-bank-app-gateway-api:8080"
