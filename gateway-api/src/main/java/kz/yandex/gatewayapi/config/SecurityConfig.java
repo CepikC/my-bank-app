@@ -35,7 +35,7 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
                 .authorizeExchange(exchanges -> exchanges
-                                .pathMatchers("/actuator/**").permitAll()
+                                .pathMatchers("/actuator/health", "/actuator/health/**").permitAll()
                                 .anyExchange().authenticated()
                 )
                 .formLogin(withDefaults())

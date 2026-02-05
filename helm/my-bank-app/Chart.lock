@@ -1,0 +1,42 @@
+dependencies:
+- name: keycloak
+  repository: file://../charts/keycloak
+  version: 0.1.0
+- name: postgresql-accounts
+  repository: file://../charts/postgresql-accounts
+  version: 0.1.0
+- name: postgresql-exchange
+  repository: file://../charts/postgresql-exchange
+  version: 0.1.0
+- name: postgresql-notifications
+  repository: file://../charts/postgresql-notifications
+  version: 0.1.0
+- name: gateway-api
+  repository: file://../charts/gateway-api
+  version: 0.1.0
+- name: front-ui
+  repository: file://../charts/front-ui
+  version: 0.1.0
+- name: accounts
+  repository: file://../charts/accounts
+  version: 0.1.0
+- name: cash
+  repository: file://../charts/cash
+  version: 0.1.0
+- name: convert
+  repository: file://../charts/convert
+  version: 0.1.0
+- name: exchange
+  repository: file://../charts/exchange
+  version: 0.1.0
+- name: transfer
+  repository: file://../charts/transfer
+  version: 0.1.0
+- name: blocker
+  repository: file://../charts/blocker
+  version: 0.1.0
+- name: notifications
+  repository: file://../charts/notifications
+  version: 0.1.0
+digest: sha256:72aad889021d6aa1d4c53c4de17ef0f10f668a702a5bebd59b0a768bab27c91a
+generated: "2026-02-22T19:17:34.423111+02:00"

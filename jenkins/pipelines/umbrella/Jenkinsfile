@@ -1,0 +1,288 @@
+pipeline {
+    agent any
+
+    environment {
+        K8S_NAMESPACE_DEV = 'my-bank-app-dev'
+        K8S_NAMESPACE_TEST = 'my-bank-app-test'
+        K8S_NAMESPACE_PROD = 'my-bank-app-prod'
+        
+        DOCKER_REGISTRY = credentials('DOCKER_REGISTRY')
+        GITHUB_USERNAME = credentials('GITHUB_USERNAME')
+        IMAGE_TAG = "${env.BUILD_NUMBER}"
+    }
+
+    parameters {
+        choice(name: 'DEPLOY_ENV', choices: ['dev', 'test', 'prod'], description: 'Environment to deploy to')
+        booleanParam(name: 'SKIP_TESTS', defaultValue: false, description: 'Skip Helm tests')
+    }
+
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        disableConcurrentBuilds()
+    }
+
+    stages {
+        stage('Инициализация') {
+            steps {
+                echo "Запуск полного цикла сборки и деплоя my-bank-app"
+                echo "Окружение: ${params.DEPLOY_ENV}"
+            }
+        }
+
+        stage('Получение исходников') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Сборка всех проектов') {
+            steps {
+                sh "mvn clean package -DskipTests"
+                archiveArtifacts artifacts: "**/target/*.jar", fingerprint: true
+            }
+        }
+
+        stage('Запуск тестов') {
+            steps {
+                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                    sh "mvn test"
+                }
+            }
+            post {
+                always {
+                    junit "**/target/surefire-reports/*.xml"
+                }
+            }
+        }
+
+        stage('Сборка Docker образов') {
+            parallel {
+                stage('accounts образ') {
+                    steps {
+                        sh """
+                            docker build -f accounts/Dockerfile \\
+                            --build-arg JAR_FILE=accounts/target/*.jar \\
+                            -t ${DOCKER_REGISTRY}/accounts:${IMAGE_TAG} .
+                        """
+                    }
+                }
+                stage('gateway-api образ') {
+                    steps {
+                        sh """
+                            docker build -f gateway-api/Dockerfile \\
+                            --build-arg JAR_FILE=gateway-api/target/*.jar \\
+                            -t ${DOCKER_REGISTRY}/gateway-api:${IMAGE_TAG} .
+                        """
+                    }
+                }
+                stage('cash образ') {
+                    steps {
+                        sh """
+                            docker build -f cash/Dockerfile \\
+                            --build-arg JAR_FILE=cash/target/*.jar \\
+                            -t ${DOCKER_REGISTRY}/cash:${IMAGE_TAG} .
+                        """
+                    }
+                }
+                stage('transfer образ') {
+                    steps {
+                        sh """
+                            docker build -f transfer/Dockerfile \\
+                            --build-arg JAR_FILE=transfer/target/*.jar \\
+                            -t ${DOCKER_REGISTRY}/transfer:${IMAGE_TAG} \\
+                            .
+                        """
+                    }
+                }
+                stage('convert образ') {
+                    steps {
+                        sh """
+                            docker build -f convert/Dockerfile \\
+                            --build-arg JAR_FILE=convert/target/*.jar \\
+                            -t ${DOCKER_REGISTRY}/convert:${IMAGE_TAG} .
+                        """
+                    }
+                }
+                stage('exchange образ') {
+                    steps {
+                        sh """
+                            docker build -f exchange/Dockerfile \\
+                            --build-arg JAR_FILE=exchange/target/*.jar \\
+                            -t ${DOCKER_REGISTRY}/exchange:${IMAGE_TAG} .
+                        """
+                    }
+                }
+                stage('blocker образ') {
+                    steps {
+                        sh """
+                            docker build -f blocker/Dockerfile \\
+                            --build-arg JAR_FILE=blocker/target/*.jar \\
+                            -t ${DOCKER_REGISTRY}/blocker:${IMAGE_TAG} .
+                        """
+                    }
+                }
+                stage('notifications образ') {
+                    steps {
+                        sh """
+                            docker build -f notifications/Dockerfile \\
+                            --build-arg JAR_FILE=notifications/target/*.jar \\
+                            -t ${DOCKER_REGISTRY}/notifications:${IMAGE_TAG} .
+                        """
+                    }
+                }
+                stage('front-ui образ') {
+                    steps {
+                        sh """
+                            docker build -f front-ui/Dockerfile \\
+                            --build-arg JAR_FILE=front-ui/target/*.jar \\
+                            -t ${DOCKER_REGISTRY}/front-ui:${IMAGE_TAG} .
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('Публикация Docker образов') {
+            steps {
+                withCredentials([string(credentialsId: 'GHCR_TOKEN', variable: 'GHCR_TOKEN')]) {
+                    sh """
+                        echo \$GHCR_TOKEN | docker login ghcr.io -u ${GITHUB_USERNAME} --password-stdin
+                        
+                        docker push ${DOCKER_REGISTRY}/accounts:${IMAGE_TAG}
+                        docker push ${DOCKER_REGISTRY}/gateway-api:${IMAGE_TAG}
+                        docker push ${DOCKER_REGISTRY}/cash:${IMAGE_TAG}
+                        docker push ${DOCKER_REGISTRY}/transfer:${IMAGE_TAG}
+                        docker push ${DOCKER_REGISTRY}/convert:${IMAGE_TAG}
+                        docker push ${DOCKER_REGISTRY}/exchange:${IMAGE_TAG}
+                        docker push ${DOCKER_REGISTRY}/blocker:${IMAGE_TAG}
+                        docker push ${DOCKER_REGISTRY}/notifications:${IMAGE_TAG}
+                        docker push ${DOCKER_REGISTRY}/front-ui:${IMAGE_TAG}
+                    """
+                }
+            }
+        }
+
+
+        stage('Подготовка Helm зависимостей') {
+            steps {
+                sh "helm dependency build ./helm/my-bank-app"
+            }
+        }
+
+        stage('Очистка конфликтующих ресурсов') {
+            steps {
+                script {
+                    def namespace = ""
+                    if (params.DEPLOY_ENV == 'dev') {
+                        namespace = K8S_NAMESPACE_DEV
+                    } else if (params.DEPLOY_ENV == 'test') {
+                        namespace = K8S_NAMESPACE_TEST
+                    } else if (params.DEPLOY_ENV == 'prod') {
+                        namespace = K8S_NAMESPACE_PROD
+                    }
+                    
+                    sh """
+                        # Удаляем конфликтующие Ingress ресурсы
+                        kubectl delete ingress --all -n ${namespace} --ignore-not-found=true || true
+                        kubectl delete ingress --all -n my-bank-app --ignore-not-found=true || true
+                    """
+                }
+            }
+        }
+
+        stage('Деплой Dev') {
+            when {
+                anyOf {
+                    expression { params.DEPLOY_ENV == 'dev' }
+                    expression { params.DEPLOY_ENV == 'test' }
+                    expression { params.DEPLOY_ENV == 'prod' }
+                }
+            }
+            steps {
+                script {
+                    def namespace = ""
+                    if (params.DEPLOY_ENV == 'dev') {
+                        namespace = K8S_NAMESPACE_DEV
+                    } else if (params.DEPLOY_ENV == 'test') {
+                        namespace = K8S_NAMESPACE_TEST
+                    } else if (params.DEPLOY_ENV == 'prod') {
+                        namespace = K8S_NAMESPACE_PROD
+                    }
+                    
+                    echo "Деплой в окружение ${params.DEPLOY_ENV} (namespace: ${namespace})"
+                    
+                    sh """
+                        helm upgrade --install my-bank-app ./helm/my-bank-app \\
+                        --namespace ${namespace} \\
+                        --create-namespace \\
+                        --timeout=300s \\
+                        --set accounts.image.repository=${DOCKER_REGISTRY}/accounts \\
+                        --set accounts.image.tag=${IMAGE_TAG} \\
+                        --set gateway-api.image.repository=${DOCKER_REGISTRY}/gateway-api \\
+                        --set gateway-api.image.tag=${IMAGE_TAG} \\
+                        --set cash.image.repository=${DOCKER_REGISTRY}/cash \\
+                        --set cash.image.tag=${IMAGE_TAG} \\
+                        --set transfer.image.repository=${DOCKER_REGISTRY}/transfer \\
+                        --set transfer.image.tag=${IMAGE_TAG} \\
+                        --set convert.image.repository=${DOCKER_REGISTRY}/convert \\
+                        --set convert.image.tag=${IMAGE_TAG} \\
+                        --set exchange.image.repository=${DOCKER_REGISTRY}/exchange \\
+                        --set exchange.image.tag=${IMAGE_TAG} \\
+                        --set blocker.image.repository=${DOCKER_REGISTRY}/blocker \\
+                        --set blocker.image.tag=${IMAGE_TAG} \\
+                        --set notifications.image.repository=${DOCKER_REGISTRY}/notifications \\
+                        --set notifications.image.tag=${IMAGE_TAG} \\
+                        --set front-ui.image.repository=${DOCKER_REGISTRY}/front-ui \\
+                        --set front-ui.image.tag=${IMAGE_TAG}
+                    """
+                }
+            }
+        }
+
+
+        stage('Подтверждение для Production') {
+            when {
+                expression { params.DEPLOY_ENV == 'prod' }
+            }
+            input {
+                message "Подтвердите деплой в Production"
+                ok "Deploy to Production"
+                parameters {
+                    choice(name: 'CONFIRM_PROD', choices: ['no', 'yes'], description: 'Подтвердить деплой в production')
+                }
+            }
+            steps {
+                script {
+                    if (params.CONFIRM_PROD != 'yes') {
+                        error("Деплой в production отменен пользователем")
+                    }
+                    echo "Деплой в production подтвержден"
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            script {
+                def namespace = ""
+                if (params.DEPLOY_ENV == 'dev') {
+                    namespace = K8S_NAMESPACE_DEV
+                } else if (params.DEPLOY_ENV == 'test') {
+                    namespace = K8S_NAMESPACE_TEST
+                } else if (params.DEPLOY_ENV == 'prod') {
+                    namespace = K8S_NAMESPACE_PROD
+                }
+                
+                echo "Итоговый статус деплоя в ${params.DEPLOY_ENV}:"
+                sh "kubectl get pods -n ${namespace} || true"
+            }
+        }
+        success {
+            echo "Umbrella деплой my-bank-app в ${params.DEPLOY_ENV} завершен успешно"
+        }
+        failure {
+            echo "Umbrella деплой my-bank-app в ${params.DEPLOY_ENV} завершился с ошибкой"
+        }
+    }
+}
