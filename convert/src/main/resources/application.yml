@@ -29,9 +29,9 @@ spring:
       client:
         provider:
           keycloak:
-            token-uri: http://localhost:8180/realms/bankapp/protocol/openid-connect/token
-            authorization-uri: http://localhost:8180/realms/bankapp/protocol/openid-connect/auth
-            jwk-set-uri: http://localhost:8180/realms/bankapp/protocol/openid-connect/certs
+            token-uri: http://my-bank-app-keycloak:8180/realms/bankapp/protocol/openid-connect/token
+            authorization-uri: http://my-bank-app-keycloak:8180/realms/bankapp/protocol/openid-connect/auth
+            jwk-set-uri: http://my-bank-app-keycloak:8180/realms/bankapp/protocol/openid-connect/certs
         registration:
           bankapp-client:
             client-id: bankapp-client

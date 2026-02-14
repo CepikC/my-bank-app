@@ -126,3 +126,6 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+secrets:
+  clientSecret: ""

@@ -16,7 +16,7 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          jwk-set-uri: http://localhost:8180/realms/bankapp/protocol/openid-connect/certs
+          jwk-set-uri: http://my-bank-app-keycloak:8180/realms/bankapp/protocol/openid-connect/certs
 
   # Liquibase
   liquibase:
