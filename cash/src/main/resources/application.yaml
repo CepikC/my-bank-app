@@ -39,6 +39,16 @@ spring:
             authorization-grant-type: client_credentials
             scope: openid
             provider: keycloak
+  # Kafka
+  kafka:
+    bootstrap-servers: ${KAFKA_BROKERS:kafka:29092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+
+kafka-topics:
+  notifications-topic: topic-bankapp-notifications
 
 # Circuit Breaker
 resilience4j:

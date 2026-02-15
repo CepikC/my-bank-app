@@ -1,4 +1,7 @@
 dependencies:
+- name: kafka
+  repository: https://charts.bitnami.com/bitnami
+  version: 24.0.10
 - name: keycloak
   repository: file://../charts/keycloak
   version: 0.1.0

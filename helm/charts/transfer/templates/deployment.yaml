@@ -82,6 +82,12 @@ spec:
                 secretKeyRef:
                   name: {{ include "transfer.fullname" . }}-secret
                   key: client-secret
+            # Kafka Configuration
+            - name: KAFKA_BROKERS
+              valueFrom:
+                configMapKeyRef:
+                  name: { { include "transfer.fullname" . } }-config
+                  key: kafka-brokers
           {{- with .Values.livenessProbe }}
           livenessProbe:
             {{- toYaml . | nindent 12 }}
