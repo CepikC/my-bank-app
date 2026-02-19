@@ -29,11 +29,11 @@ pipeline {
             }
         }
 
-        stage('Получение исходников') {
-            steps {
-                checkout scm
-            }
-        }
+//         stage('Получение исходников') {
+//             steps {
+//                 checkout scm
+//             }
+//         }
 
         stage('Сборка всех проектов') {
             steps {
@@ -167,6 +167,7 @@ pipeline {
             steps {
                 sh """
                 helm repo add bitnami https://charts.bitnami.com/bitnami || true
+                helm repo add prometheus-community https://prometheus-community.github.io/helm-charts || true
                 helm repo update
                 helm dependency build ./helm/my-bank-app
                 """
@@ -207,8 +208,20 @@ pipeline {
                     echo "Деплой мониторинг окружения ${params.DEPLOY_ENV} (namespace: monitoring)"
 
                     sh """
+                        # Создание общего неймспейса
+                        kubectl create namespace monitoring || true
+
                         # Устанавливаем Zipkin
                         helm upgrade --install zipkin ./helm/zipkin -n monitoring
+
+                        # Установка Prometheus-Grafana
+                        helm upgrade --install prometheus-stack prometheus-community/kube-prometheus-stack -n monitoring -f ${WORKSPACE}/helm/prometheus/prometheus-stack-values.yaml
+
+                        # Применение настроек алертов
+                        kubectl apply -f ${WORKSPACE}/helm/prometheus/prometheusrule.yaml
+
+                        # Проброс порта для веб-интерфейса Grafana
+                        # kubectl port-forward -n monitoring svc/prometheus-stack-grafana 3000:80
                     """
                 }
             }

@@ -33,6 +33,7 @@ for ns in my-bank-app-dev my-bank-app-test my-bank-app-prod; do
   kubectl delete svc --all -n "$ns" --ignore-not-found || true
   kubectl delete configmaps --all -n "$ns" --ignore-not-found || true
   kubectl delete secrets --all -n "$ns" --ignore-not-found || true
+  kubectl delete servicemonitors --all -n "$ns" --ignore-not-found || true
 done
 
 echo "Deleting PVs..."
