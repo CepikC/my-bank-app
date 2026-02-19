@@ -194,6 +194,26 @@ pipeline {
             }
         }
 
+        stage('Деплой мониторинг окружения') {
+            when {
+                anyOf {
+                    expression { params.DEPLOY_ENV == 'dev' }
+                    expression { params.DEPLOY_ENV == 'test' }
+                    expression { params.DEPLOY_ENV == 'prod' }
+                }
+            }
+            steps {
+                script {
+                    echo "Деплой мониторинг окружения ${params.DEPLOY_ENV} (namespace: monitoring)"
+
+                    sh """
+                        # Устанавливаем Zipkin
+                        helm upgrade --install zipkin ./helm/zipkin -n monitoring
+                    """
+                }
+            }
+        }
+
         stage('Деплой Dev') {
             when {
                 anyOf {

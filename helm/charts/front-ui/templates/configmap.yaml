@@ -13,3 +13,5 @@ data:
   oauth2-client-id: "bankapp-client"
   oauth2-client-provider: "keycloak"
   accounts-base-url: "http://my-bank-app-accounts:8084"
+  # Zipkin Configuration
+  zipkin-tracing-endpoint: "http://zipkin.monitoring.svc.cluster.local:9411/api/v2/spans"

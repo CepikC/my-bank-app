@@ -78,6 +78,11 @@ spec:
                 secretKeyRef:
                   name: {{ include "notifications.fullname" . }}-secret
                   key: db-password
+            - name: MANAGEMENT_ZIPKIN_TRACING_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  name: { { include "notifications.fullname" . } }-config
+                  key: zipkin-tracing-endpoint
           {{- with .Values.livenessProbe }}
           livenessProbe:
             {{- toYaml . | nindent 12 }}
