@@ -2,6 +2,7 @@ package kz.yandex.frontui.client;
 
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
@@ -20,6 +21,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AccountClient {
     private final WebClient webClient;
+    private final MeterRegistry meterRegistry;
 
     @Value("${services.gateway-api.name}")
     private String gateway;
@@ -83,6 +85,7 @@ public class AccountClient {
     }
 
     private Mono<List<Currency>> getCurrenciesFallback() {
+        meterRegistry.counter("currencies_not_available").increment();
         return Mono.just(List.of(Currency.RUB));
     }
 

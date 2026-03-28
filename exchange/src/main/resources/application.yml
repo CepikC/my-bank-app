@@ -1,3 +1,6 @@
+server:
+  port: 8085
+
 spring:
 
   application:
@@ -6,5 +9,66 @@ spring:
   main:
     web-application-type: reactive
 
-  config:
-    import: optional:configserver:http://externalized-config-app:8888
+  cloud:
+
+  # Security
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: http://my-bank-app-keycloak:8180/realms/bankapp/protocol/openid-connect/certs
+
+  # Liquibase
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.xml
+    enabled: true
+    drop-first: true
+
+  # Datasource (reactive)
+  r2dbc:
+    url: r2dbc:postgresql://localhost:5433/exchange-db
+    username: postgres
+    password: postgres
+
+  # Kafka
+  kafka:
+    bootstrap-servers: ${KAFKA_BROKERS:kafka:29092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: 0
+      retries: 0
+    template:
+      observation-enabled: true
+    listener:
+      observation-enabled: true
+
+kafka-topics:
+  exchange-rates-topic: topic-bankapp-exchange-rates
+
+headers:
+  user-header: X-User-Login
+
+management:
+  zipkin:
+    tracing:
+      endpoint: ${MANAGEMENT_ZIPKIN_TRACING_ENDPOINT:http://localhost:9411/api/v2/spans}
+  tracing:
+    sampling:
+      probability: 1
+  endpoints:
+    web:
+      exposure:
+        include: '*'
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    web: info
+    org.springframework.security: info
+
+services:
+  service-gateway:
+    name: "my-bank-app-gateway-api:8080"

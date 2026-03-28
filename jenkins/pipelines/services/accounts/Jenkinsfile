@@ -1,0 +1,91 @@
+pipeline {
+    agent any
+
+    environment {
+        SERVICE_NAME = 'accounts'
+        IMAGE_NAME = 'accounts'
+        GRADLE_MODULE = 'accounts'
+        K8S_NAMESPACE_DEV = 'my-bank-app-dev'
+        K8S_NAMESPACE_TEST = 'my-bank-app-test'
+        K8S_NAMESPACE_PROD = 'my-bank-app-prod'
+    }
+
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        disableConcurrentBuilds()
+    }
+
+    stages {
+        stage('Инициализация') {
+            steps {
+                echo "Запуск пайплайна для проекта: ${SERVICE_NAME}"
+            }
+        }
+
+        stage('Получение исходников') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Сборка проекта') {
+            steps {
+                sh "mvn -pl ${MAVEN_MODULE} -am clean package -DskipTests"
+                archiveArtifacts artifacts: "${MAVEN_MODULE}/target/*.jar", fingerprint: true
+            }
+        }
+
+        stage('Запуск тестов') {
+            steps {
+                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                    sh "mvn -pl ${MAVEN_MODULE} test"
+                }
+            }
+            post {
+                always {
+                    junit allowEmptyResults: true, testResults: """
+                                            ${MAVEN_MODULE}/target/surefire-reports/*.xml
+                                        """
+
+                    publishHTML([
+                        allowMissing: false,
+                        alwaysLinkToLastBuild: true,
+                        keepAll: true,
+                        reportDir: "${MAVEN_MODULE}/target/site/surefire-report",
+                        reportFiles: 'index.html',
+                        reportName: "${MAVEN_MODULE} Отчет о тестировании"
+                    ])
+                }
+            }
+        }
+
+        stage('Сборка Docker образов') {
+            steps {
+                script {
+                    sh """
+                        docker build -f ${MAVEN_MODULE}/Dockerfile \
+                        --build-arg JAR_FILE=target/*.jar \
+                        -t ${IMAGE_NAME}:${BUILD_NUMBER} ${MAVEN_MODULE}
+                    """
+                }
+            }
+        }
+
+        stage('Загрузка Docker образов в Minikube') {
+            steps {
+                sh "minikube image load ${IMAGE_NAME}:${BUILD_NUMBER}"
+            }
+        }
+
+
+    }
+
+    post {
+        success {
+            echo "${SERVICE_NAME} пайплайн прошел успешно"
+        }
+        failure {
+            echo "${SERVICE_NAME} пайплайн завершился с ошибкой"
+        }
+    }
+}

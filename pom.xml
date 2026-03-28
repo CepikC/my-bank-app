@@ -19,7 +19,6 @@
         <module>cash</module>
         <module>convert</module>
         <module>exchange</module>
-        <module>externalized-config</module>
         <module>gateway-api</module>
         <module>notifications</module>
         <module>transfer</module>

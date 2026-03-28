@@ -1,3 +1,6 @@
+server:
+  port: 8079
+
 spring:
   application:
     name: front-ui
@@ -5,5 +8,68 @@ spring:
   main:
     web-application-type: reactive
 
-  config:
-    import: optional:configserver:http://externalized-config-app:8888
+  cloud:
+
+  # Security
+  security:
+    oauth2:
+      client:
+        provider:
+          keycloak:
+            token-uri: http://my-bank-app-keycloak:8180/realms/bankapp/protocol/openid-connect/token
+            authorization-uri: http://my-bank-app-keycloak:8180/realms/bankapp/protocol/openid-connect/auth
+            jwk-set-uri: http://my-bank-app-keycloak:8180/realms/bankapp/protocol/openid-connect/certs
+        registration:
+          bankapp-client:
+            client-id: bankapp-client
+            client-secret: VmGXQDXNGOZzJH5Mx7Fi4OyHtnb3IH8A
+            authorization-grant-type: client_credentials
+            scope: openid
+            provider: keycloak
+
+  # Thymeleaf
+  thymeleaf:
+    encoding: UTF-8
+    mode: HTML
+
+# Circuit Breaker
+resilience4j:
+  retry:
+    instances:
+      gateway-service:
+        max-attempts: 3
+        wait-duration: 1s
+  circuitbreaker:
+    instances:
+      gateway-service:
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+
+headers:
+  user-header: X-User-Login
+
+management:
+  zipkin:
+    tracing:
+      endpoint: ${MANAGEMENT_ZIPKIN_TRACING_ENDPOINT:http://localhost:9411/api/v2/spans}
+  tracing:
+    sampling:
+      probability: 1
+  endpoints:
+    web:
+      exposure:
+        include: '*'
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    web: info
+    org.springframework.security: info
+
+services:
+  service-gateway:
+    name: "my-bank-app-gateway-api:8080"
+accounts:
+  base-url: http://my-bank-app-accounts:8084

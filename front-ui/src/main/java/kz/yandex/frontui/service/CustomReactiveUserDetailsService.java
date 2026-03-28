@@ -1,6 +1,7 @@
 package kz.yandex.frontui.service;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.ReactiveUserDetailsService;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -15,13 +16,14 @@ import java.util.List;
 @RequiredArgsConstructor
 public class CustomReactiveUserDetailsService implements ReactiveUserDetailsService {
     private final WebClient accountClient;
-    private static final String ACCOUNTS_BASE_URL = "http://accounts:8084";
+    @Value("${accounts.base-url}")
+    private String accountsBaseUrl;
 
     @Override
     public Mono<UserDetails> findByUsername(String username) {
         return accountClient
                 .get()
-                .uri(ACCOUNTS_BASE_URL + "/auth/users/{username}", username)
+                .uri(accountsBaseUrl + "/auth/users/{username}", username)
                 .retrieve()
                 .bodyToMono(UserDto.class)
                 .map(this::mapToUserDetails);

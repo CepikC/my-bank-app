@@ -1,6 +1,9 @@
 package kz.yandex.cash.service;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.annotation.Nullable;
+import kz.yandex.cash.producer.NotificationsProducerService;
+import kz.yandex.dto.notification.NotificationDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -10,7 +13,6 @@ import org.springframework.web.util.UriComponentsBuilder;
 import reactor.core.publisher.Mono;
 import kz.yandex.cash.client.AccountsClient;
 import kz.yandex.cash.client.BlockersClient;
-import kz.yandex.cash.client.NotificationsClient;
 import kz.yandex.dto.cash.CashProcessResponse;
 import kz.yandex.dto.cash.CashRequest;
 
@@ -26,7 +28,8 @@ public class CashService {
 
     private final AccountsClient accountsClient;
     private final BlockersClient blockersClient;
-    private final NotificationsClient notificationsClient;
+    private final NotificationsProducerService notificationsProducer;
+    private final MeterRegistry meterRegistry;
 
     private static final String SUCCESS_MESSAGE = "Успешное пополнение счета:";
     private static final String FAIL_MESSAGE = "Ошибка пополнения счета:";
@@ -44,20 +47,26 @@ public class CashService {
                                     CashProcessResponse body = response.getBody();
                                     log.info("тело ответа {}", body);
                                     if (body != null && "completed".equals(body.getStatus())) {
-                                        notificationsClient.sendNotification(login, formatMessage(SUCCESS_MESSAGE, cashRequest)).subscribe();
+                                        notificationsProducer.sendNotificationsMessage(login, new NotificationDto(login, formatMessage(login, SUCCESS_MESSAGE, cashRequest)));
                                     } else {
-                                        notificationsClient.sendNotification(login, formatMessage(FAIL_MESSAGE, cashRequest)).subscribe();
+                                        notificationsProducer.sendNotificationsMessage(login, new NotificationDto(login, formatMessage(login, FAIL_MESSAGE, cashRequest)));
                                     }
                                 })
                                 .flatMap(response -> redirectToMain(response.getBody().getErrors()));
                     } else {
-                        notificationsClient.sendNotification(login, formatMessage(BLOCKED_MESSAGE, cashRequest)).subscribe();
+                        notificationsProducer.sendNotificationsMessage(login, new NotificationDto(login, formatMessage(login, BLOCKED_MESSAGE, cashRequest)));
+                        meterRegistry.counter("cash_blocked_by_login", "login", login).increment();
+                        meterRegistry.counter("cash_blocked_by_account", "currency", cashRequest.getCurrency()).increment();
                         return redirectToMain(List.of(BLOCKED_MESSAGE));
                     }
                 });
     }
 
-    private String formatMessage(String message, CashRequest cashRequest) {
+    private String formatMessage(String login, String message, CashRequest cashRequest) {
+        if (message.equals(FAIL_MESSAGE)) {
+            meterRegistry.counter("cash_failed_by_login", "login", login).increment();
+            meterRegistry.counter("cash_failed_by_account", "currency", cashRequest.getCurrency()).increment();
+        }
         String dateTime = LocalDateTime.now().format(FORMATTER);
         return String.format(dateTime + " " + message + " %s %s", cashRequest.getCurrency(), cashRequest.getValue());
     }
